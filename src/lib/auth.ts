@@ -5,6 +5,15 @@ import { db } from "@/lib/db";
 
 const SESSION_COOKIE = "wareflow_session";
 const SESSION_DAYS = 7;
+const DEFAULT_LOCATIONS = [
+  ["RAK-1", "Rak 1", "RAK"],
+  ["RAK-2", "Rak 2", "RAK"],
+  ["RAK-3", "Rak 3", "RAK"],
+  ["RAK-4", "Rak 4", "RAK"],
+  ["RAK-5", "Rak 5", "RAK"],
+  ["GUDANG", "Gudang", "GUDANG"],
+  ["BELUM-DITEMPATKAN", "Belum ditempatkan", "SISTEM"],
+] as const;
 
 export async function createOwnerIfMissing() {
   const email = process.env.OWNER_EMAIL ?? "owner@wareflow.local";
@@ -97,35 +106,37 @@ export async function getCurrentUser() {
 }
 
 export async function ensureWorkspaceForUser(user: { id: string; name: string; role: string; workspaceId: string | null }) {
-  if (user.workspaceId) return { id: user.workspaceId };
-  const workspace = await db.workspace.create({ data: { name: `${user.name} Workspace` } });
-  await db.user.update({ where: { id: user.id }, data: { workspaceId: workspace.id } });
+  const workspaceId = user.workspaceId
+    ? user.workspaceId
+    : (await db.$transaction(async (tx) => {
+        const current = await tx.user.findUnique({ where: { id: user.id }, select: { workspaceId: true } });
+        if (current?.workspaceId) return current.workspaceId;
+        const workspace = await tx.workspace.create({ data: { name: `${user.name} Workspace` } });
+        const claimed = await tx.user.updateMany({ where: { id: user.id, workspaceId: null }, data: { workspaceId: workspace.id } });
+        if (!claimed.count) {
+          const assigned = await tx.user.findUniqueOrThrow({ where: { id: user.id }, select: { workspaceId: true } });
+          return assigned.workspaceId as string;
+        }
+        return workspace.id;
+      }));
 
   if (user.role === "OWNER") {
     await db.$transaction([
-      db.category.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
-      db.product.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
-      db.location.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
-      db.supplier.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
-      db.purchase.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
-      db.stockCount.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
-      db.importBatch.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
-      db.aiUsageLog.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+      db.category.updateMany({ where: { workspaceId: null }, data: { workspaceId } }),
+      db.product.updateMany({ where: { workspaceId: null }, data: { workspaceId } }),
+      db.location.updateMany({ where: { workspaceId: null }, data: { workspaceId } }),
+      db.supplier.updateMany({ where: { workspaceId: null }, data: { workspaceId } }),
+      db.purchase.updateMany({ where: { workspaceId: null }, data: { workspaceId } }),
+      db.stockCount.updateMany({ where: { workspaceId: null }, data: { workspaceId } }),
+      db.importBatch.updateMany({ where: { workspaceId: null }, data: { workspaceId } }),
+      db.aiUsageLog.updateMany({ where: { workspaceId: null }, data: { workspaceId } }),
     ]);
-  } else {
-    await db.location.createMany({
-      data: [
-        ["RAK-1", "Rak 1", "RAK"],
-        ["RAK-2", "Rak 2", "RAK"],
-        ["RAK-3", "Rak 3", "RAK"],
-        ["RAK-4", "Rak 4", "RAK"],
-        ["RAK-5", "Rak 5", "RAK"],
-        ["GUDANG", "Gudang", "GUDANG"],
-        ["BELUM-DITEMPATKAN", "Belum ditempatkan", "SISTEM"],
-      ].map(([code, name, type]) => ({ workspaceId: workspace.id, code, name, type })),
-    });
   }
-  return { id: workspace.id };
+  await db.location.createMany({
+    data: DEFAULT_LOCATIONS.map(([code, name, type]) => ({ workspaceId, code, name, type })),
+    skipDuplicates: true,
+  });
+  return { id: workspaceId };
 }
 
 export async function getCurrentWorkspace() {
