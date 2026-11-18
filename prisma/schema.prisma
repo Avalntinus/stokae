@@ -101,7 +101,7 @@ model Product {
 model Location {
   id        String        @id @default(cuid())
   workspaceId String?
-  code      String        @unique
+  code      String
   name      String
   type      String        @default("RAK")
   notes     String?
