@@ -3,12 +3,12 @@ import { cookies } from "next/headers";
 import { createHash, randomInt } from "crypto";
 import { db } from "@/lib/db";
 
-const SESSION_COOKIE = "stokae_session";
+const SESSION_COOKIE = "wareflow_session";
 const SESSION_DAYS = 7;
 
 export async function createOwnerIfMissing() {
-  const email = process.env.OWNER_EMAIL ?? "owner@stokae.local";
-  const password = process.env.OWNER_PASSWORD ?? "stokae-demo";
+  const email = process.env.OWNER_EMAIL ?? "owner@wareflow.local";
+  const password = process.env.OWNER_PASSWORD ?? "wareflow-demo";
   const existing = await db.user.findUnique({ where: { email } });
   if (!existing) {
     await db.user.create({

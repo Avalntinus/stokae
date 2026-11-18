@@ -15,8 +15,8 @@ Buka `http://localhost:3000`.
 
 Login lokal:
 
-- Email: `owner@stokae.local`
-- Kata sandi: `stokae-demo`
+- Email: `owner@wareflow.local`
+- Kata sandi: `wareflow-demo`
 
 ## Fitur saat ini
 

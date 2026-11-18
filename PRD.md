@@ -550,7 +550,7 @@ Alternatif jika salah satu layanan bermasalah (cukup disiapkan, tidak perlu dipa
 
 1. Buat repo GitHub dan dorong kode awal.
 2. Buat akun **TiDB Cloud**, buat cluster **Starter** di region Singapore, buat user/password, aktifkan koneksi aman, salin connection string MySQL.
-3. Buat database terpisah untuk produksi dan (opsional) satu untuk preview/uji, misalnya `stokae_prod` dan `stokae_preview`.
+3. Buat database terpisah untuk produksi dan (opsional) satu untuk preview/uji, misalnya `wareflow_prod` dan `wareflow_preview`.
 4. Buat kunci API di **Google AI Studio** (tanpa mengaktifkan billing).
 5. Impor repo ke **Vercel**, pilih framework Next.js, isi environment variables (18.4) untuk *Production*; untuk *Preview* arahkan ke database preview atau kosongkan agar preview tidak menyentuh data produksi.
 6. Jalankan migrasi ke database produksi dengan `prisma migrate deploy` (dari laptop atau langkah build terkontrol) lalu `npm run db:seed` satu kali untuk akun owner dan lokasi awal.

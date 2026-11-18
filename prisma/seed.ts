@@ -4,8 +4,8 @@ import { PrismaClient } from "@prisma/client";
 const db = new PrismaClient();
 
 async function main() {
-  const email = process.env.OWNER_EMAIL ?? "owner@stokae.local";
-  const password = process.env.OWNER_PASSWORD ?? "stokae-demo";
+  const email = process.env.OWNER_EMAIL ?? "owner@wareflow.local";
+  const password = process.env.OWNER_PASSWORD ?? "wareflow-demo";
   await db.user.upsert({
     where: { email },
     update: { emailVerifiedAt: new Date(), role: "OWNER" },
