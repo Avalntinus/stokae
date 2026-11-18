@@ -12,6 +12,7 @@ import {
   CircleHelp,
   FileSpreadsheet,
   LayoutDashboard,
+  LogOut,
   Menu,
   PackagePlus,
   Pencil,
@@ -25,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Product = {
   id: string | number;
@@ -69,6 +71,7 @@ const navItems = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [active, setActive] = useState("Ringkasan");
   const [products, setProducts] = useState(initialProducts);
   const [query, setQuery] = useState("");
@@ -142,6 +145,20 @@ export default function Home() {
     setNotice(message);
     window.setTimeout(() => setNotice(""), 2600);
   };
+
+  async function logout() {
+    try {
+      const response = await fetch("/api/auth/logout", { method: "POST" });
+      if (!response.ok) {
+        notify("Logout gagal. Silakan coba lagi.");
+        return;
+      }
+      router.push("/login");
+      router.refresh();
+    } catch {
+      notify("Logout gagal karena koneksi bermasalah.");
+    }
+  }
 
   async function addProduct(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -272,6 +289,9 @@ export default function Home() {
               <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f0d7bd] text-xs font-bold text-[#8a5e3b]">PA</div>
               <div className="hidden sm:block"><p className="text-xs font-semibold">Pengguna</p><p className="text-[10px] text-[#8e979f]">Akun terverifikasi</p></div>
               <ChevronDown size={14} className="hidden text-[#9ba4ac] sm:block" />
+              <button type="button" onClick={logout} aria-label="Keluar dari akun" title="Keluar" className="ml-1 flex h-9 w-9 items-center justify-center rounded-xl border border-[#e2e6e9] bg-white text-[#66717b] transition hover:border-[#f0c5bf] hover:bg-[#fff5f3] hover:text-[#c96c5e]">
+                <LogOut size={16} />
+              </button>
             </div>
           </div>
         </header>
