@@ -6,11 +6,17 @@ const db = new PrismaClient();
 async function main() {
   const email = process.env.OWNER_EMAIL ?? "owner@wareflow.local";
   const password = process.env.OWNER_PASSWORD ?? "wareflow-demo";
-  await db.user.upsert({
+  const owner = await db.user.upsert({
     where: { email },
     update: { emailVerifiedAt: new Date(), role: "OWNER" },
     create: { email, name: "Pengguna", passwordHash: await hash(password, 12), emailVerifiedAt: new Date(), role: "OWNER" },
   });
+  const workspace = owner.workspaceId
+    ? await db.workspace.findUniqueOrThrow({ where: { id: owner.workspaceId } })
+    : await db.workspace.create({
+        data: { name: `${owner.name} Workspace`, users: { connect: { id: owner.id } } },
+      });
+  if (!owner.workspaceId) await db.user.update({ where: { id: owner.id }, data: { workspaceId: workspace.id } });
 
   const locations = [
     ["RAK-1", "Rak 1", "RAK"],
@@ -22,7 +28,12 @@ async function main() {
     ["BELUM-DITEMPATKAN", "Belum ditempatkan", "SISTEM"],
   ];
   for (const [code, name, type] of locations) {
-    await db.location.upsert({ where: { code }, update: { name, type }, create: { code, name, type } });
+    const existing = await db.location.findFirst({ where: { workspaceId: workspace.id, code } });
+    if (existing) {
+      await db.location.update({ where: { id: existing.id }, data: { name, type } });
+    } else {
+      await db.location.create({ data: { workspaceId: workspace.id, code, name, type } });
+    }
   }
 
   const demoProducts = [
@@ -33,9 +44,13 @@ async function main() {
     ["KBL-LAN-C6", "Kabel LAN Cat 6", "Kabel", 42, 20, "GUDANG"],
   ] as const;
   for (const [sku, name, categoryName, quantity, minStock, locationCode] of demoProducts) {
-    const category = await db.category.upsert({ where: { name: categoryName }, update: {}, create: { name: categoryName } });
-    const product = await db.product.upsert({ where: { normalizedName: name.toLowerCase() }, update: { sku, categoryId: category.id, minStock }, create: { sku, name, normalizedName: name.toLowerCase(), categoryId: category.id, minStock } });
-    const location = await db.location.findUniqueOrThrow({ where: { code: locationCode } });
+    const category = await db.category.findFirst({ where: { workspaceId: workspace.id, name: categoryName } }) ?? await db.category.create({ data: { workspaceId: workspace.id, name: categoryName } });
+    const normalizedName = name.toLowerCase();
+    const existingProduct = await db.product.findFirst({ where: { workspaceId: workspace.id, normalizedName } });
+    const product = existingProduct
+      ? await db.product.update({ where: { id: existingProduct.id }, data: { sku, categoryId: category.id, minStock } })
+      : await db.product.create({ data: { workspaceId: workspace.id, sku, name, normalizedName, categoryId: category.id, minStock } });
+    const location = await db.location.findFirstOrThrow({ where: { workspaceId: workspace.id, code: locationCode } });
     await db.stockLevel.upsert({ where: { productId_locationId: { productId: product.id, locationId: location.id } }, update: { quantity }, create: { productId: product.id, locationId: location.id, quantity } });
   }
 }

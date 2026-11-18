@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentWorkspace } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { assertAiQuota } from "@/lib/ai/quota";
 
 export const maxDuration = 30;
 
 export async function POST(request: Request) {
-  if (!(await getCurrentUser())) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
+  const context = await getCurrentWorkspace();
+  if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
   try {
-    await assertAiQuota("SCAN_NOTA");
+    await assertAiQuota("SCAN_NOTA", context.workspaceId);
     const form = await request.formData();
     const file = form.get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "Foto atau PDF nota wajib dipilih." }, { status: 400 });
@@ -29,11 +30,11 @@ export async function POST(request: Request) {
     const data = (await response.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
     const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
     const extracted = JSON.parse(raw.replace(/^```json\s*/i, "").replace(/```$/i, "").trim()) as unknown;
-    await db.aiUsageLog.create({ data: { feature: "SCAN_NOTA", status: "BERHASIL" } });
+    await db.aiUsageLog.create({ data: { workspaceId: context.workspaceId, feature: "SCAN_NOTA", status: "BERHASIL" } });
     return NextResponse.json({ extracted, reviewRequired: true });
   } catch (error) {
     const code = error instanceof Error ? error.message : "AI_PROVIDER";
-    await db.aiUsageLog.create({ data: { feature: "SCAN_NOTA", status: "GAGAL", errorCode: code } });
+    await db.aiUsageLog.create({ data: { workspaceId: context.workspaceId, feature: "SCAN_NOTA", status: "GAGAL", errorCode: code } });
     return NextResponse.json({ error: code === "AI_QUOTA" ? "Kuota AI hari ini sudah habis." : "Nota belum bisa dibaca. Silakan input manual.", fallback: true }, { status: 503 });
   }
 }

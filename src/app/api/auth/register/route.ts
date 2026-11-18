@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { hash } from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { issueOtp } from "@/lib/auth";
+import { ensureWorkspaceForUser, issueOtp } from "@/lib/auth";
 
 const schema = z.object({
   name: z.string().trim().min(2),
@@ -24,6 +24,7 @@ export async function POST(request: Request) {
       role: "USER",
     },
   });
+  await ensureWorkspaceForUser(user);
   const devOtp = await issueOtp(user.id, "REGISTER");
   return NextResponse.json({ requiresOtp: true, purpose: "REGISTER", email: user.email, devOtp }, { status: 201 });
 }

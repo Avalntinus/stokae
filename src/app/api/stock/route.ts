@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentWorkspace } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 const movementSchema = z.object({
@@ -13,13 +13,16 @@ const movementSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (!(await getCurrentUser())) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
+  const context = await getCurrentWorkspace();
+  if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
   const parsed = movementSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Perubahan stok tidak valid." }, { status: 400 });
   const input = parsed.data;
   try {
     const result = await db.$transaction(async (tx) => {
-    const from = await tx.location.findUnique({ where: { code: input.locationCode } });
+    const product = await tx.product.findFirst({ where: { id: input.productId, workspaceId: context.workspaceId, archivedAt: null } });
+    if (!product) throw new Error("Barang tidak ditemukan.");
+    const from = await tx.location.findFirst({ where: { workspaceId: context.workspaceId, code: input.locationCode } });
     if (!from) throw new Error("Lokasi asal tidak ditemukan.");
     const source = await tx.stockLevel.findUnique({ where: { productId_locationId: { productId: input.productId, locationId: from.id } } });
     if (!source || source.quantity < input.quantity) throw new Error("Stok di lokasi asal tidak mencukupi.");
@@ -27,7 +30,7 @@ export async function POST(request: Request) {
     await tx.stockMovement.create({ data: { productId: input.productId, locationId: from.id, type: input.type === "KELUAR" ? "KELUAR" : "PINDAH_KELUAR", quantity: input.quantity, reason: input.reason } });
     if (input.type === "PINDAH") {
       if (!input.destinationCode) throw new Error("Lokasi tujuan wajib dipilih.");
-      const destination = await tx.location.findUnique({ where: { code: input.destinationCode } });
+      const destination = await tx.location.findFirst({ where: { workspaceId: context.workspaceId, code: input.destinationCode } });
       if (!destination) throw new Error("Lokasi tujuan tidak ditemukan.");
       await tx.stockLevel.upsert({ where: { productId_locationId: { productId: input.productId, locationId: destination.id } }, update: { quantity: { increment: input.quantity } }, create: { productId: input.productId, locationId: destination.id, quantity: input.quantity } });
       await tx.stockMovement.create({ data: { productId: input.productId, locationId: destination.id, fromLocationId: from.id, type: "PINDAH_MASUK", quantity: input.quantity, reason: input.reason } });

@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentWorkspace } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function GET() {
-  if (!(await getCurrentUser())) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
-  const products = await db.product.findMany({ where: { archivedAt: null }, include: { stockLevels: true, purchaseItems: true } });
+  const context = await getCurrentWorkspace();
+  if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
+  const products = await db.product.findMany({ where: { workspaceId: context.workspaceId, archivedAt: null }, include: { stockLevels: true, purchaseItems: true } });
   const totalUnits = products.reduce((sum, product) => sum + product.stockLevels.reduce((levelSum, level) => levelSum + level.quantity, 0), 0);
   const lowStock = products.filter((product) => product.stockLevels.reduce((sum, level) => sum + level.quantity, 0) <= product.minStock).length;
   const inventoryValue = products.reduce((sum, product) => {

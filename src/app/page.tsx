@@ -50,14 +50,6 @@ type PurchaseRecord = {
   status: string;
 };
 
-const initialProducts: Product[] = [
-  { id: 1, name: "Kabel HDMI 2M", category: "Kabel", sku: "KBL-HDMI-2M", stock: 24, unit: "pcs", location: "Rak 1", cost: 45000, minStock: 10, status: "Aman" },
-  { id: 2, name: "Lampu LED 12W", category: "Lampu", sku: "LMP-LED-12", stock: 8, unit: "pcs", location: "Rak 2", cost: 28000, minStock: 10, status: "Menipis" },
-  { id: 3, name: "Stop Kontak 4 Lubang", category: "Elektrikal", sku: "STK-4L", stock: 18, unit: "pcs", location: "Rak 3", cost: 65000, minStock: 8, status: "Aman" },
-  { id: 4, name: "Charger Samsung Type-C", category: "Aksesoris", sku: "CHR-SAM-C", stock: 0, unit: "pcs", location: "Gudang", cost: 75000, minStock: 5, status: "Habis" },
-  { id: 5, name: "Kabel LAN Cat 6", category: "Kabel", sku: "KBL-LAN-C6", stock: 42, unit: "meter", location: "Gudang", cost: 7000, minStock: 20, status: "Aman" },
-];
-
 const formatRupiah = (value: number) =>
   new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(value);
 
@@ -73,18 +65,15 @@ const navItems = [
 export default function Home() {
   const router = useRouter();
   const [active, setActive] = useState("Ringkasan");
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [showAi, setShowAi] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notice, setNotice] = useState("");
-  const [purchases, setPurchases] = useState<PurchaseRecord[]>([
-    { id: 1, date: "16 Nov 2026", supplier: "Mitra Elektrik", items: 4, total: 1245000, status: "Tersimpan" },
-    { id: 2, date: "12 Nov 2026", supplier: "Sinar Jaya", items: 2, total: 520000, status: "Tersimpan" },
-  ]);
-  const [locations, setLocations] = useState(["Rak 1", "Rak 2", "Rak 3", "Rak 4", "Rak 5", "Gudang", "Belum ditempatkan"]);
+  const [purchases, setPurchases] = useState<PurchaseRecord[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
   const [stockAction, setStockAction] = useState<{ product: Product; type: "KELUAR" | "PINDAH" } | null>(null);
   const [dashboardSummary, setDashboardSummary] = useState<{ productCount?: number; totalUnits?: number; lowStock?: number; inventoryValue?: number }>({});
 
@@ -92,7 +81,6 @@ export default function Home() {
     fetch("/api/products")
       .then((response) => (response.ok ? response.json() : []))
       .then((items: { id: string; name: string; sku: string | null; unit: string; minStock: number; category?: { name: string } | null; stockLevels: { quantity: number; location: { name: string } }[] }[]) => {
-        if (!items.length) return;
         setProducts(items.map((item) => {
           const stock = item.stockLevels.reduce((sum, level) => sum + level.quantity, 0);
           return { id: item.id, name: item.name, category: item.category?.name ?? "Umum", sku: item.sku ?? "—", stock, unit: item.unit, location: item.stockLevels[0]?.location.name ?? "Belum ditempatkan", cost: 0, minStock: item.minStock, status: stock === 0 ? "Habis" : stock <= item.minStock ? "Menipis" : "Aman" };

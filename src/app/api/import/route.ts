@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentWorkspace } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 function parseNumber(value: unknown) {
@@ -8,7 +8,8 @@ function parseNumber(value: unknown) {
 }
 
 export async function POST(request: Request) {
-  if (!(await getCurrentUser())) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
+  const context = await getCurrentWorkspace();
+  if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
   const form = await request.formData();
   const file = form.get("file");
   if (!(file instanceof File)) return NextResponse.json({ error: "File wajib dipilih." }, { status: 400 });
@@ -28,17 +29,16 @@ export async function POST(request: Request) {
     const normalizedName = name.toLowerCase().replace(/\s+/g, " ").trim();
     const categoryName = String(row.kategori ?? row.category ?? "Umum").trim() || "Umum";
     const locationCode = String(row.lokasi_kode ?? "BELUM-DITEMPATKAN").trim() || "BELUM-DITEMPATKAN";
-    const location = await db.location.findUnique({ where: { code: locationCode } });
+    const location = await db.location.findFirst({ where: { workspaceId: context.workspaceId, code: locationCode } });
     if (!location) {
       errors.push({ row: index + 2, reason: `Lokasi ${locationCode} tidak ditemukan.` });
       continue;
     }
-    const category = await db.category.upsert({ where: { name: categoryName }, update: {}, create: { name: categoryName } });
-    const product = await db.product.upsert({
-      where: { normalizedName },
-      update: { categoryId: category.id, updatedAt: new Date() },
-      create: { name, normalizedName, sku: String(row.sku ?? "").trim() || null, categoryId: category.id, unit: String(row.satuan ?? "pcs"), minStock: Math.max(0, Math.round(parseNumber(row.stok_minimum))) },
-    });
+    const category = await db.category.findFirst({ where: { workspaceId: context.workspaceId, name: categoryName } }) ?? await db.category.create({ data: { workspaceId: context.workspaceId, name: categoryName } });
+    const existingProduct = await db.product.findFirst({ where: { workspaceId: context.workspaceId, normalizedName } });
+    const product = existingProduct
+      ? await db.product.update({ where: { id: existingProduct.id }, data: { categoryId: category.id, updatedAt: new Date() } })
+      : await db.product.create({ data: { workspaceId: context.workspaceId, name, normalizedName, sku: String(row.sku ?? "").trim() || null, categoryId: category.id, unit: String(row.satuan ?? "pcs"), minStock: Math.max(0, Math.round(parseNumber(row.stok_minimum))) } });
     const quantity = Math.max(0, Math.round(parseNumber(row.jumlah)));
     if (quantity > 0) {
       await db.$transaction([
@@ -48,6 +48,6 @@ export async function POST(request: Request) {
     }
     successRows += 1;
   }
-  await db.importBatch.create({ data: { filename: file.name, status: errors.length ? "SELESAI_DENGAN_ERROR" : "SELESAI", totalRows: rows.length, successRows, failedRows: errors.length, errorReport: JSON.stringify(errors) } });
+  await db.importBatch.create({ data: { workspaceId: context.workspaceId, filename: file.name, status: errors.length ? "SELESAI_DENGAN_ERROR" : "SELESAI", totalRows: rows.length, successRows, failedRows: errors.length, errorReport: JSON.stringify(errors) } });
   return NextResponse.json({ totalRows: rows.length, successRows, failedRows: errors.length, errors });
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentWorkspace } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 const itemSchema = z.object({
@@ -18,22 +18,26 @@ const purchaseSchema = z.object({
 });
 
 export async function GET() {
-  if (!(await getCurrentUser())) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
-  return NextResponse.json(await db.purchase.findMany({ include: { supplier: true, items: { include: { product: true, location: true } } }, orderBy: { purchaseDate: "desc" } }));
+  const context = await getCurrentWorkspace();
+  if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
+  return NextResponse.json(await db.purchase.findMany({ where: { workspaceId: context.workspaceId }, include: { supplier: true, items: { include: { product: true, location: true } } }, orderBy: { purchaseDate: "desc" } }));
 }
 
 export async function POST(request: Request) {
-  if (!(await getCurrentUser())) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
+  const context = await getCurrentWorkspace();
+  if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
   const parsed = purchaseSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Data pembelian tidak valid.", details: parsed.error.flatten() }, { status: 400 });
   const input = parsed.data;
   const totalCost = input.items.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
   const purchase = await db.$transaction(async (tx) => {
-    const supplier = input.supplier ? await tx.supplier.upsert({ where: { name: input.supplier }, update: {}, create: { name: input.supplier } }) : null;
-    const created = await tx.purchase.create({ data: { purchaseDate: input.purchaseDate, invoiceNo: input.invoiceNo, notes: input.notes, totalCost, supplierId: supplier?.id } });
+    const supplier = input.supplier ? await tx.supplier.findFirst({ where: { workspaceId: context.workspaceId, name: input.supplier } }) ?? await tx.supplier.create({ data: { workspaceId: context.workspaceId, name: input.supplier } }) : null;
+    const created = await tx.purchase.create({ data: { workspaceId: context.workspaceId, purchaseDate: input.purchaseDate, invoiceNo: input.invoiceNo, notes: input.notes, totalCost, supplierId: supplier?.id } });
     for (const item of input.items) {
-      const location = await tx.location.findUnique({ where: { code: item.locationCode } });
+      const location = await tx.location.findFirst({ where: { workspaceId: context.workspaceId, code: item.locationCode } });
       if (!location) throw new Error(`Lokasi ${item.locationCode} tidak ditemukan.`);
+      const product = await tx.product.findFirst({ where: { id: item.productId, workspaceId: context.workspaceId, archivedAt: null } });
+      if (!product) throw new Error("Barang tidak ditemukan.");
       await tx.purchaseItem.create({ data: { purchaseId: created.id, productId: item.productId, locationId: location.id, quantity: item.quantity, unitCost: item.unitCost } });
       const current = await tx.stockLevel.upsert({ where: { productId_locationId: { productId: item.productId, locationId: location.id } }, update: { quantity: { increment: item.quantity } }, create: { productId: item.productId, locationId: location.id, quantity: item.quantity } });
       await tx.stockMovement.create({ data: { productId: item.productId, locationId: location.id, type: "MASUK", quantity: item.quantity, referenceType: "PURCHASE", referenceId: created.id } });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentWorkspace } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 const countSchema = z.object({
@@ -10,14 +10,17 @@ const countSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  if (!(await getCurrentUser())) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
+  const context = await getCurrentWorkspace();
+  if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
   const parsed = countSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Data stock count tidak valid." }, { status: 400 });
-  const location = await db.location.findUnique({ where: { code: parsed.data.locationCode } });
+  const location = await db.location.findFirst({ where: { workspaceId: context.workspaceId, code: parsed.data.locationCode } });
   if (!location) return NextResponse.json({ error: "Lokasi tidak ditemukan." }, { status: 400 });
   const count = await db.$transaction(async (tx) => {
-    const created = await tx.stockCount.create({ data: { notes: parsed.data.notes, status: "SELESAI" } });
+    const created = await tx.stockCount.create({ data: { workspaceId: context.workspaceId, notes: parsed.data.notes, status: "SELESAI" } });
     for (const item of parsed.data.items) {
+      const product = await tx.product.findFirst({ where: { id: item.productId, workspaceId: context.workspaceId, archivedAt: null } });
+      if (!product) throw new Error("Barang tidak ditemukan.");
       const current = await tx.stockLevel.findUnique({ where: { productId_locationId: { productId: item.productId, locationId: location.id } } });
       const systemQty = current?.quantity ?? 0;
       const difference = item.countedQty - systemQty;

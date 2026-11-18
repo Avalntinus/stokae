@@ -11,9 +11,12 @@ export async function createOwnerIfMissing() {
   const password = process.env.OWNER_PASSWORD ?? "wareflow-demo";
   const existing = await db.user.findUnique({ where: { email } });
   if (!existing) {
-    await db.user.create({
+    const owner = await db.user.create({
       data: { email, name: "Pemilik", passwordHash: await hash(password, 12), emailVerifiedAt: new Date(), role: "OWNER" },
     });
+    await ensureWorkspaceForUser(owner);
+  } else {
+    await ensureWorkspaceForUser(existing);
   }
 }
 
@@ -91,6 +94,45 @@ export async function getCurrentUser() {
   });
   if (!session || session.expiresAt < new Date()) return null;
   return session.user;
+}
+
+export async function ensureWorkspaceForUser(user: { id: string; name: string; role: string; workspaceId: string | null }) {
+  if (user.workspaceId) return { id: user.workspaceId };
+  const workspace = await db.workspace.create({ data: { name: `${user.name} Workspace` } });
+  await db.user.update({ where: { id: user.id }, data: { workspaceId: workspace.id } });
+
+  if (user.role === "OWNER") {
+    await db.$transaction([
+      db.category.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+      db.product.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+      db.location.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+      db.supplier.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+      db.purchase.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+      db.stockCount.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+      db.importBatch.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+      db.aiUsageLog.updateMany({ where: { workspaceId: null }, data: { workspaceId: workspace.id } }),
+    ]);
+  } else {
+    await db.location.createMany({
+      data: [
+        ["RAK-1", "Rak 1", "RAK"],
+        ["RAK-2", "Rak 2", "RAK"],
+        ["RAK-3", "Rak 3", "RAK"],
+        ["RAK-4", "Rak 4", "RAK"],
+        ["RAK-5", "Rak 5", "RAK"],
+        ["GUDANG", "Gudang", "GUDANG"],
+        ["BELUM-DITEMPATKAN", "Belum ditempatkan", "SISTEM"],
+      ].map(([code, name, type]) => ({ workspaceId: workspace.id, code, name, type })),
+    });
+  }
+  return { id: workspace.id };
+}
+
+export async function getCurrentWorkspace() {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  const workspace = await ensureWorkspaceForUser(user);
+  return { user, workspaceId: workspace.id };
 }
 
 export async function destroySession() {
