@@ -226,9 +226,9 @@ export default function Home() {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-[min(84vw,300px)] flex-col border-r border-[#e6e9ed] bg-white px-5 py-6 transition-transform duration-300 ease-out lg:w-[260px] lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between px-2">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1f8f80] text-lg font-bold text-white">AE</div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#1f8f80] text-lg font-bold text-white">WF</div>
             <div>
-              <p className="truncate text-[17px] font-bold tracking-tight">Stok<span className="text-[#1f8f80]">AE</span></p>
+              <p className="truncate text-[17px] font-bold tracking-tight">Ware<span className="text-[#1f8f80]">flow</span></p>
               <p className="truncate text-[11px] text-[#8b949e]">Manajemen Inventaris</p>
             </div>
           </div>
