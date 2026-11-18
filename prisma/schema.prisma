@@ -1,0 +1,195 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash  String
+  name         String
+  emailVerifiedAt DateTime?
+  role         String   @default("USER")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sessions     Session[]
+  otpCodes     OtpCode[]
+}
+
+model OtpCode {
+  id        String   @id @default(cuid())
+  userId    String
+  codeHash  String
+  purpose   String
+  expiresAt DateTime
+  attempts  Int      @default(0)
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, purpose])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([token])
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+}
+
+model Product {
+  id          String          @id @default(cuid())
+  sku         String?         @unique
+  name        String
+  normalizedName String          @unique
+  unit        String          @default("pcs")
+  minStock    Int             @default(0)
+  notes       String?
+  aliases     String          @default("[]")
+  categoryId  String?
+  archivedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  category    Category?       @relation(fields: [categoryId], references: [id])
+  purchaseItems PurchaseItem[]
+  stockLevels StockLevel[]
+  movements   StockMovement[]
+  countItems  StockCountItem[]
+  @@index([normalizedName])
+}
+
+model Location {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  name      String
+  type      String        @default("RAK")
+  notes     String?
+  archivedAt DateTime?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  stockLevels StockLevel[]
+  movementsIn StockMovement[] @relation("MovementTo")
+  movementsOut StockMovement[] @relation("MovementFrom")
+  purchaseItems PurchaseItem[]
+  countItems StockCountItem[]
+}
+
+model Supplier {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  phone     String?
+  notes     String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  purchases Purchase[]
+}
+
+model Purchase {
+  id          String         @id @default(cuid())
+  purchaseDate DateTime
+  supplierId  String?
+  invoiceNo   String?
+  notes       String?
+  totalCost   Int
+  cancelledAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  supplier    Supplier?      @relation(fields: [supplierId], references: [id])
+  items       PurchaseItem[]
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  purchaseId String
+  productId  String
+  locationId String
+  quantity   Int
+  unitCost   Int
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id])
+  location   Location @relation(fields: [locationId], references: [id])
+}
+
+model StockLevel {
+  id         String   @id @default(cuid())
+  productId  String
+  locationId String
+  quantity   Int      @default(0)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  @@unique([productId, locationId])
+}
+
+model StockMovement {
+  id            String   @id @default(cuid())
+  productId     String
+  locationId    String
+  type          String
+  quantity      Int
+  referenceType String?
+  referenceId   String?
+  reason        String?
+  createdAt     DateTime @default(now())
+  product       Product  @relation(fields: [productId], references: [id])
+  location      Location @relation("MovementTo", fields: [locationId], references: [id])
+  fromLocation  Location? @relation("MovementFrom", fields: [fromLocationId], references: [id])
+  fromLocationId String?
+}
+
+model StockCount {
+  id        String           @id @default(cuid())
+  countDate DateTime         @default(now())
+  status    String           @default("DRAFT")
+  notes     String?
+  createdAt DateTime         @default(now())
+  items     StockCountItem[]
+}
+
+model StockCountItem {
+  id           String      @id @default(cuid())
+  stockCountId String
+  productId    String
+  locationId   String
+  systemQty    Int
+  countedQty   Int
+  difference   Int
+  stockCount   StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  product      Product    @relation(fields: [productId], references: [id])
+  location     Location   @relation(fields: [locationId], references: [id])
+}
+
+model ImportBatch {
+  id          String   @id @default(cuid())
+  filename    String
+  status      String
+  totalRows   Int
+  successRows Int
+  failedRows  Int
+  errorReport String   @default("[]")
+  createdAt   DateTime @default(now())
+}
+
+model AiUsageLog {
+  id           String   @id @default(cuid())
+  feature      String
+  status       String
+  latencyMs    Int?
+  inputTokens  Int?
+  outputTokens Int?
+  errorCode    String?
+  createdAt    DateTime @default(now())
+}
