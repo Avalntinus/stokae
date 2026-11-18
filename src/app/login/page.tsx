@@ -41,6 +41,13 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
+    if (data?.success) {
+      router.push("/");
+      router.refresh();
+      return;
+    }
+    setError("Login berhasil diproses, tetapi sesi belum dibuat.");
+    setLoading(false);
   }
 
   async function verifyOtp(event: FormEvent<HTMLFormElement>) {

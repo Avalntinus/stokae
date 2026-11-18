@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticate, issueOtp } from "@/lib/auth";
+import { authenticate, createSession, issueOtp } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -12,6 +12,6 @@ export async function POST(request: Request) {
     const devOtp = await issueOtp(user.id, "REGISTER");
     return NextResponse.json({ requiresOtp: true, purpose: "REGISTER", email: user.email, devOtp }, { status: 403 });
   }
-  const devOtp = await issueOtp(user.id, "LOGIN");
-  return NextResponse.json({ requiresOtp: true, purpose: "LOGIN", email: user.email, devOtp });
+  await createSession(user.id);
+  return NextResponse.json({ success: true });
 }
