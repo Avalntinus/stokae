@@ -3,7 +3,7 @@
 ## F0 Setup
 
 - [x] Scaffold Next.js App Router + TypeScript.
-- [x] Tema visual StokAE dan layout sidebar responsif.
+- [x] Tema visual Wareflow dan layout sidebar responsif.
 - [x] Dashboard ringkasan inventaris.
 - [x] Daftar barang dan pencarian.
 - [x] Tambah barang melalui modal.

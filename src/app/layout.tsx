@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StokAE — Manajemen Inventaris",
+  title: "Wareflow — Manajemen Inventaris",
   description: "Aplikasi manajemen stok dan inventaris",
 };
 

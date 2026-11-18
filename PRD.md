@@ -1,10 +1,10 @@
-# PRD: Sistem Informasi Stok Toko Abednego Elektronik
+# PRD: Wareflow — Sistem Informasi Inventaris
 
 > **Dokumen ini ditulis untuk dieksekusi oleh GitHub Copilot CLI.** Baca seluruh dokumen sebelum menulis kode. Kerjakan per fase (Bagian 12), jangan melompat. Jika ada keputusan yang belum ditentukan di sini, pilih opsi paling sederhana, catat di `DECISIONS.md`, lalu lanjut.
 
 | | |
 |---|---|
-| **Nama produk (working title)** | StokAE (Stok Abednego Elektronik) |
+| **Nama produk (working title)** | Wareflow |
 | **Versi** | 1.1 (draf; menambah fitur AI dan deployment online gratis) |
 | **Tanggal** | 16 November 2026 |
 | **Sumber** | Dokumen Project Management Plan "Digitalisasi Pengelolaan Stok Mitra Toko Elektronik melalui Aplikasi Web Terintegrasi" (UTS/UAS MPTI, Udinus) |
@@ -567,7 +567,7 @@ Alternatif jika salah satu layanan bermasalah (cukup disiapkan, tidak perlu dipa
 | `GEMINI_API_KEY` | Kunci dari Google AI Studio | Rahasia; **tidak** diawali `NEXT_PUBLIC_` |
 | `GEMINI_MODEL` | Nama model gratis yang berlaku | Cek di AI Studio saat implementasi |
 | `AI_DAILY_LIMIT` | Default `30` | Batas permintaan AI per hari |
-| `NEXT_PUBLIC_APP_NAME` | `StokAE` | Non-rahasia |
+| `NEXT_PUBLIC_APP_NAME` | `Wareflow` | Non-rahasia |
 
 Sediakan `.env.example` tanpa nilai rahasia; `.env` wajib masuk `.gitignore`.
 

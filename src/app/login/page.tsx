@@ -87,8 +87,8 @@ export default function LoginPage() {
         <div className="hidden min-h-[560px] flex-col justify-between bg-[#0b292b] p-10 text-white md:flex">
           <div>
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2ab29d] font-bold">SA</div>
-              <span className="text-xl font-bold">StokAE</span>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#2ab29d] font-bold">WF</div>
+              <span className="text-xl font-bold">Wareflow</span>
             </div>
             <div className="mt-24 max-w-sm">
               <p className="text-sm text-[#89b9b1]">Manajemen stok yang lebih rapi</p>
@@ -120,7 +120,7 @@ export default function LoginPage() {
               </>
             ) : (
               <>
-                <p className="mt-8 text-sm text-[#819098] md:mt-16">{mode === "login" ? "Selamat datang kembali" : "Mulai gunakan StokAE"}</p>
+                <p className="mt-8 text-sm text-[#819098] md:mt-16">{mode === "login" ? "Selamat datang kembali" : "Mulai gunakan Wareflow"}</p>
                 <h2 className="mt-2 text-2xl font-bold">{mode === "login" ? "Masuk ke akun" : "Daftar akun baru"}</h2>
                 <p className="mt-2 text-xs leading-5 text-[#8d999f]">Setiap login akan dilindungi kode OTP melalui email.</p>
                 <form onSubmit={submit} className="mt-8 space-y-4">

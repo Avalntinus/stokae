@@ -66,14 +66,14 @@ export async function issueOtp(userId: string, purpose: "REGISTER" | "LOGIN") {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM ?? "StokAE <onboarding@resend.dev>",
+        from: process.env.EMAIL_FROM ?? "Wareflow <onboarding@resend.dev>",
         to: [user.email],
-        subject: "Kode verifikasi StokAE",
-        text: `Kode OTP StokAE Anda adalah ${code}. Kode berlaku selama 10 menit.`,
+        subject: "Kode verifikasi Wareflow",
+        text: `Kode OTP Wareflow Anda adalah ${code}. Kode berlaku selama 10 menit.`,
       }),
     });
   } else {
-    console.info(`[StokAE OTP] ${user.email}: ${code}`);
+    console.info(`[Wareflow OTP] ${user.email}: ${code}`);
   }
   return process.env.NODE_ENV !== "production" ? code : null;
 }

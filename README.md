@@ -1,6 +1,6 @@
-# StokAE
+# Wareflow
 
-Web dashboard untuk mengelola stok Toko Abednego Elektronik.
+Web dashboard untuk mengelola stok dan operasional inventaris.
 
 ## Menjalankan aplikasi
 
