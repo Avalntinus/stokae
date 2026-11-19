@@ -37,7 +37,7 @@ export default function LoginPage() {
     }
     if (data?.requiresOtp) {
       setOtp({ email: data.email, purpose: data.purpose, code: "" });
-      setError(data.devOtp ? `Kode uji lokal: ${data.devOtp}` : "");
+      setError(data.devOtp ? `Kode uji lokal: ${data.devOtp}` : data.error ?? "");
       setLoading(false);
       return;
     }

@@ -3,6 +3,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { ensureWorkspaceForUser, issueOtp } from "@/lib/auth";
+import { otpErrorResponse } from "@/lib/otp-response";
 
 const schema = z.object({
   name: z.string().trim().min(2),
@@ -25,6 +26,15 @@ export async function POST(request: Request) {
     },
   });
   await ensureWorkspaceForUser(user);
-  const devOtp = await issueOtp(user.id, "REGISTER");
-  return NextResponse.json({ requiresOtp: true, purpose: "REGISTER", email: user.email, devOtp }, { status: 201 });
+  try {
+    const devOtp = await issueOtp(user.id, "REGISTER");
+    return NextResponse.json({ requiresOtp: true, purpose: "REGISTER", email: user.email, devOtp }, { status: 201 });
+  } catch (error) {
+    return otpErrorResponse(error, {
+      requiresOtp: true,
+      purpose: "REGISTER",
+      email: user.email,
+      message: "Akun dibuat, tetapi kode OTP gagal dikirim. Coba kirim ulang atau hubungi pemilik.",
+    });
+  }
 }

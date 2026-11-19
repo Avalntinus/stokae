@@ -14,6 +14,7 @@
 
 - [x] Prisma SQLite lokal dengan model user, session, barang, kategori, lokasi, pembelian, stok, movement, import, stock count, dan log AI.
 - [x] Login credentials, session cookie httpOnly tujuh hari, logout, dan proteksi halaman.
+- [x] OTP email via Brevo/Resend dengan validasi kegagalan kirim dan cooldown antar permintaan.
 - [x] API barang, lokasi, pembelian atomik, stok keluar/pindah, dashboard, import, stock count, ekspor CSV, Tanya Stok, dan Scan Nota.
 - [x] Seed akun owner, lokasi awal, dan data demo.
 - [x] Unit test aturan weighted average, status stok, dan format angka Indonesia.

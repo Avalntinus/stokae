@@ -2,6 +2,7 @@ import { compare, hash } from "bcryptjs";
 import { cookies } from "next/headers";
 import { createHash, randomInt } from "crypto";
 import { db } from "@/lib/db";
+import { EmailNotConfiguredError, sendEmail } from "@/lib/email";
 
 const SESSION_COOKIE = "wareflow_session";
 const SESSION_DAYS = 7;
@@ -55,14 +56,52 @@ export async function createSession(userId: string) {
   return token;
 }
 
+export class OtpCooldownError extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super("OTP_COOLDOWN");
+    this.name = "OtpCooldownError";
+  }
+}
+
+export function isDevOtpEchoEnabled() {
+  const flag = process.env.OTP_DEV_ECHO?.trim().toLowerCase();
+  if (flag === "true") return true;
+  if (flag === "false") return false;
+  return process.env.NODE_ENV !== "production";
+}
+
+function otpCooldownSeconds() {
+  const fallback = process.env.NODE_ENV === "production" ? 60 : 0;
+  const configured = Number(process.env.OTP_RESEND_COOLDOWN_SECONDS ?? fallback);
+  return Number.isFinite(configured) && configured > 0 ? configured : 0;
+}
+
 export async function issueOtp(userId: string, purpose: "REGISTER" | "LOGIN") {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+  if (!user) throw new Error("Pengguna tidak ditemukan.");
+
+  const cooldownSeconds = otpCooldownSeconds();
+  if (cooldownSeconds > 0) {
+    const latest = await db.otpCode.findFirst({
+      where: { userId, purpose },
+      orderBy: { createdAt: "desc" },
+      select: { createdAt: true },
+    });
+    if (latest) {
+      const elapsedMs = Date.now() - latest.createdAt.getTime();
+      if (elapsedMs < cooldownSeconds * 1000) {
+        throw new OtpCooldownError(Math.ceil((cooldownSeconds * 1000 - elapsedMs) / 1000));
+      }
+    }
+  }
+
   const code = String(randomInt(100000, 1000000));
   const codeHash = createHash("sha256").update(code).digest("hex");
   await db.otpCode.updateMany({
     where: { userId, purpose, usedAt: null },
     data: { usedAt: new Date() },
   });
-  await db.otpCode.create({
+  const otp = await db.otpCode.create({
     data: {
       userId,
       purpose,
@@ -71,23 +110,28 @@ export async function issueOtp(userId: string, purpose: "REGISTER" | "LOGIN") {
     },
   });
 
-  const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
-  if (!user) throw new Error("Pengguna tidak ditemukan.");
-  if (process.env.RESEND_API_KEY) {
-    await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: process.env.EMAIL_FROM ?? "Wareflow <onboarding@resend.dev>",
-        to: [user.email],
-        subject: "Kode verifikasi Wareflow",
-        text: `Kode OTP Wareflow Anda adalah ${code}. Kode berlaku selama 10 menit.`,
-      }),
+  try {
+    await sendEmail({
+      to: user.email,
+      subject: "Kode verifikasi Wareflow",
+      text: `Kode OTP Wareflow Anda adalah ${code}. Kode berlaku selama 10 menit.`,
+      html: `<p>Kode OTP Wareflow Anda adalah <strong style="font-size:20px;letter-spacing:4px">${code}</strong></p><p>Kode berlaku selama 10 menit. Jangan bagikan kode ini kepada siapa pun.</p>`,
     });
-  } else {
-    console.info(`[Wareflow OTP] ${user.email}: ${code}`);
+  } catch (error) {
+    if (error instanceof EmailNotConfiguredError && process.env.NODE_ENV !== "production") {
+      console.info(`[Wareflow OTP] ${user.email}: ${code}`);
+      return isDevOtpEchoEnabled() ? code : null;
+    }
+    await db.otpCode.delete({ where: { id: otp.id } }).catch(() => undefined);
+    if (error instanceof EmailNotConfiguredError) {
+      console.error("[Wareflow OTP] Provider email belum dikonfigurasi. Set BREVO_API_KEY dan EMAIL_FROM.");
+    } else {
+      console.error("[Wareflow OTP] Gagal mengirim email:", error instanceof Error ? error.message : error);
+    }
+    throw error;
   }
-  return process.env.NODE_ENV !== "production" ? code : null;
+
+  return isDevOtpEchoEnabled() ? code : null;
 }
 
 export function hashOtp(code: string) {
