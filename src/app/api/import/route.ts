@@ -35,10 +35,11 @@ export async function POST(request: Request) {
       continue;
     }
     const category = await db.category.findFirst({ where: { workspaceId: context.workspaceId, name: categoryName } }) ?? await db.category.create({ data: { workspaceId: context.workspaceId, name: categoryName } });
+    const cost = Math.max(0, Math.round(parseNumber(row.harga_modal ?? row.cost)));
     const existingProduct = await db.product.findFirst({ where: { workspaceId: context.workspaceId, normalizedName } });
     const product = existingProduct
-      ? await db.product.update({ where: { id: existingProduct.id }, data: { categoryId: category.id, updatedAt: new Date() } })
-      : await db.product.create({ data: { workspaceId: context.workspaceId, name, normalizedName, sku: String(row.sku ?? "").trim() || null, categoryId: category.id, unit: String(row.satuan ?? "pcs"), minStock: Math.max(0, Math.round(parseNumber(row.stok_minimum))) } });
+      ? await db.product.update({ where: { id: existingProduct.id }, data: { categoryId: category.id, updatedAt: new Date(), ...(cost > 0 ? { cost } : {}) } })
+      : await db.product.create({ data: { workspaceId: context.workspaceId, name, normalizedName, sku: String(row.sku ?? "").trim() || null, categoryId: category.id, unit: String(row.satuan ?? "pcs"), minStock: Math.max(0, Math.round(parseNumber(row.stok_minimum))), cost } });
     const quantity = Math.max(0, Math.round(parseNumber(row.jumlah)));
     if (quantity > 0) {
       await db.$transaction([

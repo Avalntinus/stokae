@@ -7,3 +7,16 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+<!-- BEGIN:second-brain -->
+
+## Second brain
+
+Session memory and handoff notes live in the Obsidian vault:
+`/home/avaln/Documents/Obsidian Vault`.
+
+At the start of non-trivial work, read `00-Handoff/current.md` and the newest
+entry in `20-Logs/`. Before finishing, update the handoff and append to the log.
+The full protocol is in that vault's `AGENTS.md`. Never put secrets in the vault.
+
+<!-- END:second-brain -->

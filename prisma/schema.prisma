@@ -81,6 +81,7 @@ model Product {
   normalizedName String
   unit        String          @default("pcs")
   minStock    Int             @default(0)
+  cost        Int             @default(0)
   notes       String?
   aliases     String          @default("[]")
   categoryId  String?

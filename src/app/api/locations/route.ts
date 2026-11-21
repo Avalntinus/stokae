@@ -8,7 +8,20 @@ const locationSchema = z.object({ code: z.string().trim().min(2), name: z.string
 export async function GET() {
   const context = await getCurrentWorkspace();
   if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
-  return NextResponse.json(await db.location.findMany({ where: { workspaceId: context.workspaceId, archivedAt: null }, include: { _count: { select: { stockLevels: true } } }, orderBy: { name: "asc" } }));
+
+  const locations = await db.location.findMany({
+    where: { workspaceId: context.workspaceId, archivedAt: null },
+    include: { stockLevels: { select: { quantity: true } } },
+    orderBy: { name: "asc" },
+  });
+
+  return NextResponse.json(
+    locations.map(({ stockLevels, ...location }) => ({
+      ...location,
+      productCount: stockLevels.filter((level) => level.quantity > 0).length,
+      unitCount: stockLevels.reduce((sum, level) => sum + level.quantity, 0),
+    })),
+  );
 }
 
 export async function POST(request: Request) {

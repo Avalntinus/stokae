@@ -20,10 +20,24 @@ export async function GET(request: Request) {
   const search = new URL(request.url).searchParams.get("search")?.trim().toLowerCase();
   const products = await db.product.findMany({
     where: { workspaceId: context.workspaceId, archivedAt: null, ...(search ? { OR: [{ normalizedName: { contains: search } }, { sku: { contains: search } }] } : {}) },
-    include: { category: true, stockLevels: { include: { location: true } } },
+    include: {
+      category: true,
+      stockLevels: { include: { location: true } },
+      purchaseItems: { select: { quantity: true, unitCost: true } },
+    },
     orderBy: { updatedAt: "desc" },
   });
-  return NextResponse.json(products);
+  return NextResponse.json(
+    products.map(({ purchaseItems, ...product }) => {
+      const totalPurchased = purchaseItems.reduce((sum, item) => sum + item.quantity, 0);
+      const totalCost = purchaseItems.reduce((sum, item) => sum + item.quantity * item.unitCost, 0);
+      return {
+        ...product,
+        avgCost: totalPurchased > 0 ? Math.round(totalCost / totalPurchased) : product.cost,
+        totalStock: product.stockLevels.reduce((sum, level) => sum + level.quantity, 0),
+      };
+    }),
+  );
 }
 
 export async function POST(request: Request) {
@@ -39,7 +53,18 @@ export async function POST(request: Request) {
   const location = await db.location.findFirst({ where: { workspaceId: context.workspaceId, code: input.locationCode } });
   if (!location) return NextResponse.json({ error: "Lokasi tidak ditemukan." }, { status: 400 });
   const product = await db.$transaction(async (tx) => {
-    const created = await tx.product.create({ data: { workspaceId: context.workspaceId, name: input.name, normalizedName, sku: input.sku || null, unit: input.unit, minStock: input.minStock, categoryId: category.id } });
+    const created = await tx.product.create({
+      data: {
+        workspaceId: context.workspaceId,
+        name: input.name,
+        normalizedName,
+        sku: input.sku || null,
+        unit: input.unit,
+        minStock: input.minStock,
+        cost: input.cost,
+        categoryId: category.id,
+      },
+    });
     if (input.stock > 0) {
       await tx.stockLevel.create({ data: { productId: created.id, locationId: location.id, quantity: input.stock } });
       await tx.stockMovement.create({ data: { productId: created.id, locationId: location.id, type: "SALDO_AWAL", quantity: input.stock, reason: "Saldo awal" } });
@@ -54,7 +79,7 @@ export async function PATCH(request: Request) {
   if (!context) return NextResponse.json({ error: "Tidak terautentikasi." }, { status: 401 });
   const body = await request.json().catch(() => null);
   const id = typeof body?.id === "string" ? body.id : "";
-  const parsed = productSchema.pick({ name: true, sku: true, category: true, unit: true, minStock: true }).safeParse(body);
+  const parsed = productSchema.pick({ name: true, sku: true, category: true, unit: true, minStock: true, cost: true }).safeParse(body);
   if (!id || !parsed.success) return NextResponse.json({ error: "Data barang tidak valid.", details: parsed.success ? undefined : parsed.error.flatten() }, { status: 400 });
 
   const input = parsed.data;
@@ -80,6 +105,7 @@ export async function PATCH(request: Request) {
       sku: input.sku || null,
       unit: input.unit,
       minStock: input.minStock,
+      cost: input.cost,
       categoryId: category.id,
     },
   });
